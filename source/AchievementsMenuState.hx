@@ -1,5 +1,6 @@
 package;
 
+import lime.app.Application;
 #if desktop
 import Discord.DiscordClient;
 #end
@@ -38,6 +39,8 @@ class AchievementsMenuState extends MusicBeatState
 		menuBG.antialiasing = ClientPrefs.globalAntialiasing;
 		add(menuBG);
 
+		Application.current.window.title = 'The Funkin World of Gumball - Achivements Menu';
+
 		grpOptions = new FlxTypedGroup<Alphabet>();
 		add(grpOptions);
 
@@ -69,10 +72,6 @@ class AchievementsMenuState extends MusicBeatState
 		descText.borderSize = 2.4;
 		add(descText);
 		changeSelection();
-
-		#if mobileC
-        addVirtualPad(UP_DOWN, B);
-        #end
 
 		super.create();
 	}

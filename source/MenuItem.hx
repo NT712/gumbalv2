@@ -10,10 +10,12 @@ class MenuItem extends FlxSprite
 {
 	public var targetY:Float = 0;
 	public var flashingInt:Int = 0;
+	var weekName:String;
 
 	public function new(x:Float, y:Float, weekName:String = '')
 	{
 		super(x, y);
+		this.weekName = weekName;
 		loadGraphic(Paths.image('storymenu/' + weekName));
 		//trace('Test added: ' + WeekData.getWeekNumber(weekNum) + ' (' + weekNum + ')');
 		antialiasing = ClientPrefs.globalAntialiasing;
@@ -41,7 +43,19 @@ class MenuItem extends FlxSprite
 			flashingInt += 1;
 
 		if (flashingInt % fakeFramerate >= Math.floor(fakeFramerate / 2))
-			color = 0xFF33ffff;
+		{
+			switch(weekName)
+			{
+				case 'tutorial':
+					color = CharacterColor.GIRLFRIEND;
+				case 'gumball':
+					color = CharacterColor.GUMBALL;
+				case 'darwin':
+					color = CharacterColor.DARWIN;
+				default:
+					color = 0xFF33ffff;
+			}
+		}
 		else
 			color = FlxColor.WHITE;
 	}
