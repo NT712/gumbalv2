@@ -94,7 +94,18 @@ class EditorPlayState extends MusicBeatState
 			vocals = new FlxSound();
 
 		generateSong(PlayState.SONG.song);
-
+		#if LUA_ALLOWED
+		for (notetype in noteTypeMap.keys()) {
+			var luaToLoad:String = Paths.modFolders('custom_notetypes/' + notetype + '.lua');
+			if(sys.FileSystem.exists(luaToLoad)) {
+				var lua:editors.EditorLua = new editors.EditorLua(luaToLoad);
+				new FlxTimer().start(0.1, function (tmr:FlxTimer) {
+					lua.stop();
+					lua = null;
+				});
+			}
+		}
+		#end
 		noteTypeMap.clear();
 		noteTypeMap = null;
 
@@ -150,7 +161,6 @@ class EditorPlayState extends MusicBeatState
 	//var songScore:Int = 0;
 	var songHits:Int = 0;
 	var songMisses:Int = 0;
-	var ghostMisses:Int = 0;
 	var startingSong:Bool = true;
 	private function generateSong(dataPath:String):Void
 	{
@@ -450,6 +460,20 @@ class EditorPlayState extends MusicBeatState
 		stepTxt.text = 'Step: ' + curStep;
 		super.update(elapsed);
 	}
+	
+	override public function onFocus():Void
+	{
+		vocals.play();
+
+		super.onFocus();
+	}
+	
+	override public function onFocusLost():Void
+	{
+		vocals.pause();
+
+		super.onFocusLost();
+	}
 
 	override function beatHit()
 	{
@@ -556,7 +580,7 @@ class EditorPlayState extends MusicBeatState
 							}
 						}
 						else if (canMiss && controlArray[i]) 
-							noteMiss(i, true);
+							noteMiss(i);
 					}
 				}
 			}
@@ -630,12 +654,11 @@ class EditorPlayState extends MusicBeatState
 		}
 	}
 
-	function noteMiss(direction:Int = 1, ?ghostMiss:Bool = false):Void
+	function noteMiss(direction:Int = 1):Void
 	{
 		combo = 0;
 
 		//songScore -= 10;
-		if(ghostMiss) ghostMisses++;
 		songMisses++;
 
 		FlxG.sound.play(Paths.soundRandom('missnote', 1, 3), FlxG.random.float(0.1, 0.2));

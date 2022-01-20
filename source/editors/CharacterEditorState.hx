@@ -32,7 +32,10 @@ import Character;
 import flixel.system.debug.interaction.tools.Pointer.GraphicCursorCross;
 import lime.system.Clipboard;
 import flixel.animation.FlxAnimation;
-import flixel.FlxCamera;
+
+#if MODS_ALLOWED
+import sys.FileSystem;
+#end
 
 using StringTools;
 
@@ -141,10 +144,10 @@ class CharacterEditorState extends MusicBeatState
 		var tipText:FlxText = new FlxText(FlxG.width - 20, FlxG.height, 0,
 			"E/Q - Camera Zoom In/Out
 			\nJKLI - Move Camera
-			
 			\nW/S - Previous/Next Animation
 			\nSpace - Play Animation
 			\nArrow Keys - Move Character Offset
+			\nZ - Reset Current Offset
 			\nHold Shift to Move 10x faster\n", 12);
 		tipText.cameras = [camHUD];
 		tipText.setFormat(null, 12, FlxColor.WHITE, CENTER, FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);
@@ -193,15 +196,6 @@ class CharacterEditorState extends MusicBeatState
 
 		FlxG.mouse.visible = true;
 		reloadCharacterOptions();
-
-	    #if mobileC
-		addVirtualPad(FULL, A_B_X_Y);
-
-		var camcontrol = new FlxCamera();
-		FlxG.cameras.add(camcontrol);
-		camcontrol.bgColor.alpha = 0;
-		_virtualpad.cameras = [camcontrol];
-		#end
 
 		super.create();
 	}
@@ -397,7 +391,6 @@ class CharacterEditorState extends MusicBeatState
 		tab_group.name = "Character";
 
 		imageInputText = new FlxUIInputText(15, 30, 200, 'characters/BOYFRIEND', 8);
-		imageInputText.focusGained = () -> FlxG.stage.window.textInputEnabled = true;				
 		var reloadImage:FlxButton = new FlxButton(imageInputText.x + 210, imageInputText.y - 3, "Reload Image", function()
 		{
 			char.imageFile = imageInputText.text;
@@ -407,8 +400,18 @@ class CharacterEditorState extends MusicBeatState
 			}
 		});
 
+		var decideIconColor:FlxButton = new FlxButton(reloadImage.x, reloadImage.y + 30, "Get Icon Color", function()
+			{
+				var coolColor = FlxColor.fromInt(CoolUtil.dominantColor(leHealthIcon));
+				healthColorStepperR.value = coolColor.red;
+				healthColorStepperG.value = coolColor.green;
+				healthColorStepperB.value = coolColor.blue;
+				getEvent(FlxUINumericStepper.CHANGE_EVENT, healthColorStepperR, null);
+				getEvent(FlxUINumericStepper.CHANGE_EVENT, healthColorStepperG, null);
+				getEvent(FlxUINumericStepper.CHANGE_EVENT, healthColorStepperB, null); 
+			});
+
 		healthIconInputText = new FlxUIInputText(15, imageInputText.y + 35, 75, leHealthIcon.getCharacter(), 8);
-		healthIconInputText.focusGained = () -> FlxG.stage.window.textInputEnabled = true;		
 
 		singDurationStepper = new FlxUINumericStepper(15, healthIconInputText.y + 45, 0.1, 4, 0, 999, 1);
 
@@ -458,6 +461,7 @@ class CharacterEditorState extends MusicBeatState
 		tab_group.add(new FlxText(healthColorStepperR.x, healthColorStepperR.y - 18, 0, 'Health bar R/G/B:'));
 		tab_group.add(imageInputText);
 		tab_group.add(reloadImage);
+		tab_group.add(decideIconColor);
 		tab_group.add(healthIconInputText);
 		tab_group.add(singDurationStepper);
 		tab_group.add(scaleStepper);
@@ -486,11 +490,8 @@ class CharacterEditorState extends MusicBeatState
 		tab_group.name = "Animations";
 		
 		animationInputText = new FlxUIInputText(15, 85, 80, '', 8);
-		animationInputText.focusGained = () -> FlxG.stage.window.textInputEnabled = true;
 		animationNameInputText = new FlxUIInputText(animationInputText.x, animationInputText.y + 35, 150, '', 8);
-		animationNameInputText.focusGained = () -> FlxG.stage.window.textInputEnabled = true;
 		animationIndicesInputText = new FlxUIInputText(animationNameInputText.x, animationNameInputText.y + 40, 250, '', 8);
-		animationIndicesInputText.focusGained = () -> FlxG.stage.window.textInputEnabled = true;
 		animationNameFramerate = new FlxUINumericStepper(animationInputText.x + 170, animationInputText.y, 1, 24, 0, 240, 0);
 		animationLoopCheckBox = new FlxUICheckBox(animationNameInputText.x + 170, animationNameInputText.y - 1, null, null, "Should it Loop?", 100);
 
@@ -908,7 +909,28 @@ class CharacterEditorState extends MusicBeatState
 
 	function reloadCharacterDropDown() {
 		var charsLoaded:Map<String, Bool> = new Map();
+
+		#if MODS_ALLOWED
+		characterList = [];
+		var directories:Array<String> = [Paths.mods('characters/'), Paths.mods(Paths.currentModDirectory + '/characters/'), Paths.getPreloadPath('characters/')];
+		for (i in 0...directories.length) {
+			var directory:String = directories[i];
+			if(FileSystem.exists(directory)) {
+				for (file in FileSystem.readDirectory(directory)) {
+					var path = haxe.io.Path.join([directory, file]);
+					if (!sys.FileSystem.isDirectory(path) && file.endsWith('.json')) {
+						var charToCheck:String = file.substr(0, file.length - 5);
+						if(!charsLoaded.exists(charToCheck)) {
+							characterList.push(charToCheck);
+							charsLoaded.set(charToCheck, true);
+						}
+					}
+				}
+			}
+		}
+		#else
 		characterList = CoolUtil.coolTextFile(Paths.txt('characterList'));
+		#end
 
 		charDropDown.setData(FlxUIDropDownMenuCustom.makeStrIdLabelArray(characterList, true));
 		charDropDown.selectedLabel = daAnim;
@@ -964,7 +986,7 @@ class CharacterEditorState extends MusicBeatState
 		FlxG.sound.volumeUpKeys = TitleState.volumeUpKeys;
 
 		if(!charDropDown.dropPanel.visible) {
-			if (FlxG.keys.justPressed.ESCAPE #if mobileC || _virtualpad.buttonB.justPressed #end) {
+			if (FlxG.keys.justPressed.ESCAPE) {
 				if(goToPlayState) {
 					MusicBeatState.switchState(new PlayState());
 				} else {
@@ -1006,12 +1028,12 @@ class CharacterEditorState extends MusicBeatState
 			}
 
 			if(char.animationsArray.length > 0) {
-				if (FlxG.keys.justPressed.W #if mobileC || _virtualpad.buttonX.justPressed #end)
+				if (FlxG.keys.justPressed.W)
 				{
 					curAnim -= 1;
 				}
 
-				if (FlxG.keys.justPressed.S #if mobileC || _virtualpad.buttonY.justPressed #end)
+				if (FlxG.keys.justPressed.S)
 				{
 					curAnim += 1;
 				}
@@ -1022,13 +1044,28 @@ class CharacterEditorState extends MusicBeatState
 				if (curAnim >= char.animationsArray.length)
 					curAnim = 0;
 
-				if (FlxG.keys.justPressed.S || FlxG.keys.justPressed.W || FlxG.keys.justPressed.SPACE #if mobileC || _virtualpad.buttonA.justPressed #end)
+				if (FlxG.keys.justPressed.S || FlxG.keys.justPressed.W || FlxG.keys.justPressed.SPACE)
 				{
 					char.playAnim(char.animationsArray[curAnim].anim, true);
 					genBoyOffsets();
 				}
 
-				var controlArray:Array<Bool> = [FlxG.keys.justPressed.LEFT, FlxG.keys.justPressed.RIGHT, FlxG.keys.justPressed.UP, FlxG.keys.justPressed.DOWN #if mobileC, _virtualpad.buttonRight.justPressed, _virtualpad.buttonLeft.justPressed, _virtualpad.buttonUp.justPressed, _virtualpad.buttonDown.justPressed #end];
+				if (FlxG.keys.justPressed.R)
+				{
+					if(FlxG.keys.pressed.CONTROL) //Center
+					{
+						char.animationsArray[curAnim].offsets = [0, 0];
+						
+						char.addOffset(char.animationsArray[curAnim].anim, char.animationsArray[curAnim].offsets[0], char.animationsArray[curAnim].offsets[1]);
+						ghostChar.addOffset(char.animationsArray[curAnim].anim, char.animationsArray[curAnim].offsets[0], char.animationsArray[curAnim].offsets[1]);
+						genBoyOffsets();
+					}
+				}
+
+				var controlArray:Array<Bool> = [FlxG.keys.justPressed.LEFT, FlxG.keys.justPressed.RIGHT, FlxG.keys.justPressed.UP, FlxG.keys.justPressed.DOWN];
+				
+				
+				
 				for (i in 0...controlArray.length) {
 					if(controlArray[i]) {
 						var holdShift = FlxG.keys.pressed.SHIFT;
@@ -1126,8 +1163,6 @@ class CharacterEditorState extends MusicBeatState
 		};
 
 		var data:String = Json.stringify(json, "\t");
-
-		openfl.system.System.setClipboard(data.trim());
 
 		if (data.length > 0)
 		{
